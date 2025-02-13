@@ -1,59 +1,61 @@
 Hello World !
 
-Import-Module : The specified module 'ImportExcel' was not loaded because no valid 
-module file was found in any module directory.
-At Z:\script api.ps1:2 char:1
-+ Import-Module ImportExcel
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ResourceUnavailable: (ImportExcel:String) [Import-Modu 
-   le], FileNotFoundException
-    + FullyQualifiedErrorId : Modules_ModuleNotFound,Microsoft.PowerShell.Commands.I 
-   mportModuleCommand
- 
-Import-Excel : The term 'Import-Excel' is not recognized as the name of a cmdlet, 
-function, script file, or operable program. Check the spelling of the name, or if a 
-path was included, verify that the path is correct and try again.
-At Z:\script api.ps1:8 char:14
-+ $excelData = Import-Excel -Path $excelFilePath
-+              ~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Import-Excel:String) [], CommandNotFo 
-   undException
-    + FullyQualifiedErrorId : CommandNotFoundException
- 
-http://172.18.0.5/glpi/apirest.php/ : The term 'http://172.18.0.5/glpi/apirest.php/' 
-is not recognized as the name of a cmdlet, function, script file, or operable 
-program. Check the spelling of the name, or if a path was included, verify that the 
-path is correct and try again.
-At Z:\script api.ps1:11 char:15
-+ $glpiApiUrl = http://172.18.0.5/glpi/apirest.php/""
-+               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (http://172.18.0.5/glpi/apirest.php/:S 
-   tring) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
- 
-Invoke-RestMethod : Invalid URI: The hostname could not be parsed.
-At Z:\script api.ps1:19 char:13
-+ $response = Invoke-RestMethod -Uri "$glpiApiUrl/initSession" -Method  ...
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Invoke-RestMethod], UriFormatExcept 
-   ion
-    + FullyQualifiedErrorId : System.UriFormatException,Microsoft.PowerShell.Command 
-   s.InvokeRestMethodCommand
- 
-Invoke-RestMethod : Object reference not set to an instance of an object.
-At Z:\script api.ps1:52 char:1
-+ Invoke-RestMethod -Uri "$glpiApiUrl/killSession" -Method Post -Header ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Invoke-RestMethod], NullReferenceEx 
-   ception
-    + FullyQualifiedErrorId : System.NullReferenceException,Microsoft.PowerShell.Com 
-   mands.InvokeRestMethodCommand
 
 
+# Importer le module ImportExcel
+Import-Module ImportExcel
 
+# Chemin vers le fichier Excel
+$excelFilePath = "C:\chemin\vers\votre\fichier\s01_BillU (2).xlsx"
 
+# Lire le fichier Excel
+$excelData = Import-Excel -Path $excelFilePath
 
+# URL de l'API REST de GLPI
+$glpiApiUrl = "http://172.18.0.5/glpi/apirest.php"
 
+# Clé API et identifiants
+$apiKey = "votre-cle-api"  # Remplacez par votre clé API
+$appToken = "votre-app-token"  # Remplacez par votre jeton d'application
+$sessionToken = ""
+
+# Obtenir un token de session
+$response = Invoke-RestMethod -Uri "$glpiApiUrl/initSession" -Method Post -Headers @{
+    "Content-Type" = "application/json"
+    "App-Token" = $appToken
+    "Authorization" = "user_token $apiKey"
+} -Body '{}'
+
+$sessionToken = $response.session_token
+
+# Parcourir les lignes du fichier Excel
+foreach ($row in $excelData) {
+    $userId = $row.'ID Utilisateur'
+    $entityId = $row.'ID Entité'
+
+    # Ajouter l'utilisateur à une entité via l'API REST
+    $body = @{
+        input = @{
+            users_id = $userId
+            entities_id = $entityId
+        }
+    }
+
+    $response = Invoke-RestMethod -Uri "$glpiApiUrl/UserEntity" -Method Post -Headers @{
+        "Content-Type" = "application/json"
+        "Session-Token" = $sessionToken
+        "App-Token" = $appToken
+    } -Body ($body | ConvertTo-Json)
+
+    Write-Output "Utilisateur $userId ajouté à l'entité $entityId"
+}
+
+# Fermer la session
+Invoke-RestMethod -Uri "$glpiApiUrl/killSession" -Method Post -Headers @{
+    "Content-Type" = "application/json"
+    "Session-Token" = $sessionToken
+    "App-Token" = $appToken
+} -Body '{}'
 
 
 
